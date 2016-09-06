@@ -20,15 +20,11 @@ static struct spi_board_info initdata = {
 	 .modalias = "Nrf24l01",  
 	 .platform_data = &nrf24l01_data,  
 	 .mode  = SPI_MODE_0,  
-	 .irq  = IRQ_GPIO_C_START+7,  
-	 .max_speed_hz = 25000000,
+	 .irq  = IRQ_GPIO_C_START+7,
+	 .max_speed_hz = 10*1000000,
 	 .bus_num = 0,  
 	 .chip_select = 0,  
 };
-uint8_t SPI_ExchangeByte(uint8_t input)
-{
-	return spi_w8r8(dev,input);
-}
 static int NRF24l01_Init(void)
 {
 	struct spi_master *spi_mast = 0;
@@ -53,19 +49,22 @@ static int NRF24l01_Init(void)
 	}
 	//L01_Init();
 	/****** GPIO IRQ初始化 ******/
-	GPIO.Pin = GPIO_Pin_8;
+	GPIO.Pin = GPIO_Pin_26;
 	GPIO.Mode = Output;
 	GPIO.Pull = Pull_Up;
-	GPIO_Init(GPIOC_BASE,&GPIO);
-	GPIO_ResetBit(GPIOC_BASE,GPIO_Pin_8);
+	GPIO_Init(GPIOB_BASE,&GPIO);
+        GPIO_SetBit(GPIOB_BASE,GPIO_Pin_26);
+	GPIO_ResetBit(GPIOB_BASE,GPIO_Pin_26);
+        spi_w8r8(dev,0xff);
+        GPIO_SetBit(GPIOB_BASE,GPIO_Pin_26);
 	printk("NRF24l01 Is Online\n");
 	return 0;
 }
 static void NRF24l01_Exit(void)
 {
 	printk("NRF24l01 is Offline\n");
-	GPIO_ResetBit(GPIOC_BASE,GPIO_Pin_8);
-	GPIO_Free(GPIOC_BASE,GPIO_Pin_8);
+	GPIO_ResetBit(GPIOB_BASE,GPIO_Pin_26);
+	GPIO_Free(GPIOB_BASE,GPIO_Pin_26);
 	if(dev)
 	{
 		spi_unregister_device(dev);

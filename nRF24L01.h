@@ -17,17 +17,17 @@
 #define INIT_ADDR       1, 2, 3, 4, 5
 
 // nRF24L01P相关控制引脚定义
-#define PORT_L01_CSN    GPIOC_BASE
-#define PIN_L01_CSN     GPIO_Pin_3
+//#define PORT_L01_CSN    GPIOC_BASE
+//#define PIN_L01_CSN     GPIO_Pin_26
 
 #define PORT_L01_IRQ    GPIOC_BASE
-#define PIN_L01_IRQ     GPIO_Pin_0
+#define PIN_L01_IRQ     GPIO_Pin_28
 
 #define PORT_L01_CE     GPIOC_BASE
-#define PIN_L01_CE      GPIO_Pin_4
+#define PIN_L01_CE      GPIO_Pin_26
 
-#define L01_CSN_LOW()   GPIO_ResetBit(PORT_L01_CSN, PIN_L01_CSN)
-#define L01_CSN_HIGH()  GPIO_SetBit(PORT_L01_CSN, PIN_L01_CSN)
+//#define L01_CSN_LOW()   GPIO_ResetBit(PORT_L01_CSN, PIN_L01_CSN)
+//#define L01_CSN_HIGH()  GPIO_SetBit(PORT_L01_CSN, PIN_L01_CSN)
 
 #define L01_CE_LOW()    GPIO_ResetBit(PORT_L01_CE, PIN_L01_CE)
 #define L01_CE_HIGH()   GPIO_SetBit(PORT_L01_CE, PIN_L01_CE)
