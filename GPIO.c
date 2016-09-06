@@ -130,13 +130,14 @@ void GPIO_Init(GPIO_BASE Base,GPIO_Typedef* Init)//物理地址多pin初始化
 }
 void GPIO_Free(GPIO_BASE Base,GPIO_Pin Pin)
 {
-	unsigned Pad = 0 , i = 0;
+	unsigned Pad = 0 , i = 0 , _Pin = 0;
 	Pad = PHYToPad_Base(Base);
+	_Pin = PHYToPad_Pin(Pin);
 	for(i = 0;i<32;i++)
 	{
 		if(Pin&(1<<i))
 		{
-			gpio_free(Pad + Pin);
+			gpio_free(Pad + _Pin);
 		}
 	}
 }

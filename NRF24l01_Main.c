@@ -23,7 +23,7 @@ static struct spi_board_info initdata = {
 	 .irq  = IRQ_GPIO_C_START+7,  
 	 .max_speed_hz = 25000000,
 	 .bus_num = 0,  
-	 .chip_select = 1,  
+	 .chip_select = 0,  
 };
 uint8_t SPI_ExchangeByte(uint8_t input)
 {
@@ -51,7 +51,7 @@ static int NRF24l01_Init(void)
 		printk("spi_new_device failed\n");
 		return 1;
 	}
-	L01_Init();
+	//L01_Init();
 	/****** GPIO IRQ初始化 ******/
 	GPIO.Pin = GPIO_Pin_8;
 	GPIO.Mode = Output;
