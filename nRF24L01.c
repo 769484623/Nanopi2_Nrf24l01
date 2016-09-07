@@ -6,9 +6,10 @@
 ============================================================================*/
 
 #include "nRF24L01.h"
-#include <linux/spi/spi.h>
-#include <linux/spi/spidev.h>
-extern struct spi_device* dev;
+
+
+uint8_t SPI_ExchangeByte(uint8_t input);
+
 
 /*===========================================================================
 * 函数 ：L01_ReadSingleReg() => 读取一个寄存器的值                          * 
@@ -17,11 +18,14 @@ extern struct spi_device* dev;
 ============================================================================*/
 uint8_t L01_ReadSingleReg(uint8_t Addr)
 {
-    uint8_t btmp[2],Command[2] = {R_REGISTER | Addr,0xFF};
+    uint8_t btmp;
     
-    spi_write_then_read(dev,Command,2,btmp,2);
+    L01_CSN_LOW();
+    SPI_ExchangeByte(R_REGISTER | Addr);
+    btmp = SPI_ExchangeByte(0xFF);
+    L01_CSN_HIGH();
     
-    return (btmp[1]);
+    return (btmp);
 }
 
 /*===========================================================================
@@ -30,8 +34,10 @@ uint8_t L01_ReadSingleReg(uint8_t Addr)
 ============================================================================*/
 void L01_WriteSingleReg(uint8_t Addr, uint8_t Value)
 {
-    uint8_t Command[2] = {Addr|W_REGISTER,Value};
-    spi_write(dev,Command,2);
+    L01_CSN_LOW();
+    SPI_ExchangeByte(W_REGISTER | Addr);
+    SPI_ExchangeByte(Value);
+    L01_CSN_HIGH();
 }
 
 /*===========================================================================
@@ -40,10 +46,12 @@ void L01_WriteSingleReg(uint8_t Addr, uint8_t Value)
 ============================================================================*/
 void L01_WriteMultiReg(uint8_t StartAddr, uint8_t *pBuff, uint8_t Length)
 {
-    uint8_t Command[Length+1];
-    Command[0] = W_REGISTER | L01REG_TX_ADDR;
-    strncpy(Command+1,pBuff,Length);
-    spi_write_then_read(dev,Command,Length+1,NULL,Length+1);
+    uint8_t i;
+    
+    L01_CSN_LOW();
+    SPI_ExchangeByte(W_REGISTER | StartAddr);
+    for (i=0; i<Length; i++)    { SPI_ExchangeByte(*(pBuff+i)); }
+    L01_CSN_HIGH();
 }
 
 /*===========================================================================
@@ -51,8 +59,9 @@ void L01_WriteMultiReg(uint8_t StartAddr, uint8_t *pBuff, uint8_t Length)
 ============================================================================*/
 void L01_FlushTX(void)
 {
-    uint8_t Command = FLUSH_TX;
-    spi_w8r8(dev,Command);
+    L01_CSN_LOW();
+    SPI_ExchangeByte(FLUSH_TX);
+    L01_CSN_HIGH();
 }
 
 /*===========================================================================
@@ -60,13 +69,18 @@ void L01_FlushTX(void)
 ============================================================================*/
 void L01_FlushRX(void)
 {
-    uint8_t Command = FLUSH_RX;
-    spi_w8r8(dev,Command);
+    L01_CSN_LOW();
+    SPI_ExchangeByte(FLUSH_RX);
+    L01_CSN_HIGH();
 }
 
 uint8_t L01_ReadStatusReg(void)
 {
-    return spi_w8r8(dev,R_REGISTER + L01REG_STATUS);
+    uint8_t Status;
+    L01_CSN_LOW();
+    Status = SPI_ExchangeByte(R_REGISTER + L01REG_STATUS);
+    L01_CSN_HIGH();
+    return (Status);
 }
 
 /*===========================================================================
@@ -76,11 +90,14 @@ uint8_t L01_ReadStatusReg(void)
 void L01_ClearIRQ(uint8_t IRQ_Source)
 {
     uint8_t btmp = 0;
-    uint8_t Command[2] = {W_REGISTER + L01REG_STATUS,IRQ_Source & ((1<<RX_DR) | (1<<TX_DS) | (1<<MAX_RT))};
 
+    IRQ_Source &= (1<<RX_DR) | (1<<TX_DS) | (1<<MAX_RT);
     btmp = L01_ReadStatusReg();
-
-    spi_write_then_read(dev,Command,2,NULL,2);
+    
+    L01_CSN_LOW();
+    SPI_ExchangeByte(W_REGISTER + L01REG_STATUS);
+    SPI_ExchangeByte(IRQ_Source | btmp);
+    L01_CSN_HIGH();
     
     L01_ReadStatusReg();
 }
@@ -99,11 +116,14 @@ uint8_t L01_ReadIRQSource(void)
 ============================================================================*/
 uint8_t L01_ReadTopFIFOWidth(void)
 {
-    uint8_t btmp[2],Command[2] = {R_RX_PL_WID,0xFF};
+    uint8_t btmp;
     
-    spi_write_then_read(dev,Command,2,btmp,2);
+    L01_CSN_LOW();
+    SPI_ExchangeByte(R_RX_PL_WID);
+    btmp = SPI_ExchangeByte(0xFF);
+    L01_CSN_HIGH();
     
-    return (btmp[1]);
+    return (btmp);
 }
 
 /*===========================================================================
@@ -113,15 +133,17 @@ uint8_t L01_ReadTopFIFOWidth(void)
 ============================================================================*/
 uint8_t L01_ReadRXPayload(uint8_t *pBuff)
 {
-    uint8_t width, PipeNum , Command[34] , i;
+    uint8_t width, PipeNum;
     PipeNum = (L01_ReadSingleReg(L01REG_STATUS)>>1) & 0x07;
     width = L01_ReadTopFIFOWidth();
-    for(i = 0;i<34;i++)
+
+    L01_CSN_LOW();
+    SPI_ExchangeByte(R_RX_PAYLOAD);
+    for (PipeNum=0; PipeNum<width; PipeNum++)
     {
-        Command[i] = 0xff;
+        *(pBuff+PipeNum) = SPI_ExchangeByte(0xFF);
     }
-    Command[0] = R_RX_PAYLOAD;
-    spi_write_then_read(dev,Command,width,pBuff,width);
+    L01_CSN_HIGH();
     L01_FlushRX();
     return (width);
 }
@@ -132,13 +154,14 @@ uint8_t L01_ReadRXPayload(uint8_t *pBuff)
 ============================================================================*/
 void L01_WriteTXPayload_Ack(uint8_t *pBuff, uint8_t nBytes)
 {
+    uint8_t btmp;
     uint8_t length = (nBytes>32) ? 32 : nBytes;
-    uint8_t Command[length+1];
 
     L01_FlushTX();
-    Command[0] = W_TX_PAYLOAD;
-    strncpy(Command+1,pBuff,length);
-    spi_write_then_read(dev,Command,length,NULL,length);
+    L01_CSN_LOW();
+    SPI_ExchangeByte(W_TX_PAYLOAD);
+    for (btmp=0; btmp<length; btmp++)   { SPI_ExchangeByte(*(pBuff+btmp)); }
+    L01_CSN_HIGH();
 }
 
 /*===========================================================================
@@ -147,11 +170,12 @@ void L01_WriteTXPayload_Ack(uint8_t *pBuff, uint8_t nBytes)
 ============================================================================*/
 void L01_WriteTXPayload_NoAck(uint8_t *Data, uint8_t Data_Length)
 {
-    uint8_t Command[Data_Length+1];
     if ((Data_Length>32) || (Data_Length==0))   { return; }
-    Command[0] = W_TX_PAYLOAD_NOACK;
-    strncpy(Command+1,Data,Data_Length);
-    spi_write_then_read(dev,Command,Data_Length,NULL,Data_Length);
+        
+    L01_CSN_LOW();
+    SPI_ExchangeByte(W_TX_PAYLOAD_NOACK);
+    while (Data_Length--)                       { SPI_ExchangeByte(*Data++); }
+    L01_CSN_HIGH();
 }
 
 /*===========================================================================
@@ -272,3 +296,4 @@ void L01_Init(void)
 /*===========================================================================
 -----------------------------------文件结束----------------------------------
 ===========================================================================*/
+
